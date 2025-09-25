@@ -15,10 +15,12 @@ type AuthStore = {
 };
 
 export const useAuthStore = create<AuthStore>((set) => ({
+	// State
 	user: null,
 	accessToken: null,
 	isAuthenticated: false,
 
+	// Actions
 	setUser: (user: User | null) => set({ user }),
 	setAccessToken: (accessToken: string | null) => set({ accessToken }),
 	setIsAuthenticated: (isAuthenticated: boolean) => set({ isAuthenticated }),
