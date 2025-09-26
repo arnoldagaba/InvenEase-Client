@@ -6,6 +6,7 @@ import axios, {
 import { StatusCodes } from "http-status-codes";
 
 import { useAuthStore } from "@/stores/authStore";
+import type { ApiResponse, RefreshResponse } from "@/types/responses";
 
 const VITE_API_URL =
 	import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -28,7 +29,7 @@ let failedQueue: Array<{
 }> = [];
 
 // Helper function to process the failed request queue
-const processQueue = (error, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
 	failedQueue.forEach(({ resolve, reject }) => {
 		if (error) {
 			reject(error);
@@ -94,8 +95,10 @@ apiClient.interceptors.response.use(
 
 			try {
 				// Attempt to refresh the token using the HTTP-only cookie
-				const response = await apiClient.post<RefreshResponse>("/auth/refresh");
-				const { accessToken } = response.data;
+				const response =
+					await apiClient.post<ApiResponse<RefreshResponse>>("/auth/refresh");
+				// biome-ignore lint/style/noNonNullAssertion: The data exists
+				const { accessToken } = response.data.data!;
 
 				// Update the access token in our store
 				useAuthStore.getState().setAccessToken(accessToken);
