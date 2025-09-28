@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, type ReactNode,  useEffect } from "react";
+import { createContext, type ReactNode, useEffect } from "react";
 
 import { authService } from "@/services/authService";
 import { UserService } from "@/services/userService";
@@ -53,7 +53,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 				// Set authenticated state all at once
 				setAuthenticatedUser(userData, accessToken);
-			// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
+
+				// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
 			} catch (error: any) {
 				console.debug(
 					"❌ Authentication initialization failed:",
@@ -63,12 +64,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				// Clear any stale auth state
 				clearAuth();
 
-				// Set error if it's not just "no auth cookie"
-				if (error.response?.status !== 401) {
+				// Only set error for actual service failures (not just missing auth)
+				// 401 = no valid refresh token (normal for logged out users)
+				// 500+ = actual server errors that should show error state
+				if (error.response?.status >= 500) {
 					setInitializationError(
 						"Authentication service unavailable. Please try again.",
 					);
 				}
+				// For 401, network errors, etc. - just proceed as unauthenticated
+				// The router will automatically redirect to login
 			} finally {
 				setIsInitialized(true);
 				console.debug("🏁 Auth initialization complete");
