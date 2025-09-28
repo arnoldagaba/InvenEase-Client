@@ -4,14 +4,14 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import type { User } from "@/types/auth";
 
-// Define the router context interface
+// Define the router context interface - MUST match what AuthProvider provides
 interface RouterContext {
 	auth: {
 		isAuthenticated: boolean;
 		isInitialized: boolean;
 		user: User | null;
 		initializationError: string | null;
-		setInitializationError: (error: string | null) => void;
+		// Remove setInitializationError from context - it's not needed in routes
 	};
 }
 

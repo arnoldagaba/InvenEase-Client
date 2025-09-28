@@ -13,6 +13,7 @@ import { FormInput, PasswordInput } from "@/components/forms";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Button } from "@/components/ui/button";
 import { useLogin } from "@/hooks/useAuth";
+import { useAuthStore } from "@/stores/authStore";
 import { type LoginDTO, loginSchema } from "@/types/auth";
 
 const loginSearchSchema = z.object({
@@ -62,7 +63,10 @@ function LoginPage() {
 	const search = useSearch({ from: "/login" });
 	const { redirect } = search;
 	const { mutateAsync, isPending } = useLogin();
-	const { isInitialized, initializationError, setInitializationError } = Route.useRouteContext().auth;
+	const { isInitialized, initializationError } = Route.useRouteContext().auth;
+
+	// Get setInitializationError from store instead of context
+	const { setInitializationError } = useAuthStore();
 
 	const {
 		register,
@@ -92,13 +96,15 @@ function LoginPage() {
 					</div>
 					<p className="text-gray-600">{initializationError}</p>
 					<div className="space-x-2">
-						<button type="button"
+						<button
+							type="button"
 							onClick={() => window.location.reload()}
 							className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
 						>
 							Retry
 						</button>
-						<button type="button"
+						<button
+							type="button"
 							onClick={() => setInitializationError(null)}
 							className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/90"
 						>

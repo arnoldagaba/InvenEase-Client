@@ -30,7 +30,6 @@ const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
 			// Don't retry on auth errors (401/403)
-
 			// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
 			retry: (failureCount, error: any) => {
 				const status = error?.response?.status;
@@ -55,11 +54,21 @@ const queryClient = new QueryClient({
 function RouterWrapper() {
 	const auth = useAuthContext();
 
+	// Debug logging
+	console.debug("🎯 RouterWrapper auth context:", {
+		isAuthenticated: auth.isAuthenticated,
+		isInitialized: auth.isInitialized,
+		user: auth.user?.email,
+		initializationError: auth.initializationError,
+	});
+
 	return <RouterProvider router={router} context={{ auth }} />;
 }
 
 // Main App component
 function App() {
+	console.debug("🚀 App component mounting...");
+
 	return (
 		<QueryClientProvider client={queryClient}>
 			<AuthProvider>

@@ -33,8 +33,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 	const queryClient = useQueryClient();
 
+	console.debug("🔐 AuthProvider render:", {
+		isAuthenticated,
+		isInitialized,
+		userEmail: user?.email,
+		initializationError,
+	});
+
 	// Initialize auth state on app startup - this is the critical part
 	useEffect(() => {
+		console.debug(
+			"🔄 AuthProvider useEffect triggered, isInitialized:",
+			isInitialized,
+		);
+
 		const initializeAuth = async () => {
 			try {
 				console.debug("🔄 Initializing authentication...");
@@ -53,6 +65,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 				// Set authenticated state all at once
 				setAuthenticatedUser(userData, accessToken);
+				console.debug("✅ Authentication state set successfully");
 
 				// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
 			} catch (error: any) {
@@ -68,21 +81,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				// 401 = no valid refresh token (normal for logged out users)
 				// 500+ = actual server errors that should show error state
 				if (error.response?.status >= 500) {
+					console.debug(
+						"❌ Setting initialization error for status:",
+						error.response?.status,
+					);
 					setInitializationError(
 						"Authentication service unavailable. Please try again.",
+					);
+				} else {
+					console.debug(
+						"ℹ️ No initialization error set for status:",
+						error.response?.status,
 					);
 				}
 				// For 401, network errors, etc. - just proceed as unauthenticated
 				// The router will automatically redirect to login
 			} finally {
 				setIsInitialized(true);
-				console.debug("🏁 Auth initialization complete");
+				console.debug(
+					"🏁 Auth initialization complete - isInitialized set to true",
+				);
 			}
 		};
 
 		// Only initialize once
 		if (!isInitialized) {
+			console.debug("🚀 Starting auth initialization...");
 			initializeAuth();
+		} else {
+			console.debug("ℹ️ Auth already initialized, skipping");
 		}
 	}, [
 		isInitialized,
@@ -95,6 +122,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 	// Clear queries when auth state changes to unauthenticated
 	useEffect(() => {
 		if (isInitialized && !isAuthenticated) {
+			console.debug("🧹 Clearing query cache - user not authenticated");
 			queryClient.clear();
 		}
 	}, [isAuthenticated, isInitialized, queryClient]);
@@ -105,6 +133,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		user,
 		initializationError,
 	};
+
+	console.debug("🎯 AuthProvider providing context value:", contextValue);
 
 	return (
 		<AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>
