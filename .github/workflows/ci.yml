@@ -1,22 +1,45 @@
-name: Code quality
+name: Code quality checks
 
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  quality:
+  build-and-lint:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    defaults:
+      run:
+        working-directory: .
+
+    env:
+      CI: true
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          persist-credentials: false
-      - name: Setup Biome
-        uses: biomejs/setup-biome@v2
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          version: latest
-      - name: Run Biome
-        run: biome ci src
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Biome (lint)
+        run: pnpm run lint
+
+      - name: Type check
+        run: pnpm exec tsc -b --pretty false
+
+      - name: Build
+        run: pnpm run build
