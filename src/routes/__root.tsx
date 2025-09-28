@@ -11,6 +11,7 @@ interface RouterContext {
 		isInitialized: boolean;
 		user: User | null;
 		initializationError: string | null;
+		setInitializationError: (error: string | null) => void;
 	};
 }
 

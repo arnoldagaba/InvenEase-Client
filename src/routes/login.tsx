@@ -62,7 +62,7 @@ function LoginPage() {
 	const search = useSearch({ from: "/login" });
 	const { redirect } = search;
 	const { mutateAsync, isPending } = useLogin();
-	const { isInitialized, initializationError } = Route.useRouteContext().auth;
+	const { isInitialized, initializationError, setInitializationError } = Route.useRouteContext().auth;
 
 	const {
 		register,
@@ -81,7 +81,8 @@ function LoginPage() {
 		return <LoadingScreen message="Loading..." />;
 	}
 
-	// Show error if initialization failed
+	// Show error only for critical service failures (500+ errors)
+	// For other errors, proceed to show login form
 	if (initializationError) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
@@ -90,13 +91,20 @@ function LoginPage() {
 						Service Unavailable
 					</div>
 					<p className="text-gray-600">{initializationError}</p>
-					<button
-						type="button"
-						onClick={() => window.location.reload()}
-						className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
-					>
-						Retry
-					</button>
+					<div className="space-x-2">
+						<button type="button"
+							onClick={() => window.location.reload()}
+							className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
+						>
+							Retry
+						</button>
+						<button type="button"
+							onClick={() => setInitializationError(null)}
+							className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/90"
+						>
+							Continue to Login
+						</button>
+					</div>
 				</div>
 			</div>
 		);
@@ -114,9 +122,9 @@ function LoginPage() {
 				console.debug("🎯 Redirecting to dashboard");
 				navigate({ to: "/dashboard", replace: true });
 			}
-		} catch {
+		} catch (error) {
 			// Error handling is done in the hook
-			console.debug("❌ Login failed");
+			console.debug("❌ Login failed", error);
 		}
 	};
 

@@ -1,5 +1,4 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export const Route = createFileRoute("/")({
@@ -26,7 +25,8 @@ export const Route = createFileRoute("/")({
 });
 
 function IndexComponent() {
-	const { isInitialized, initializationError } = Route.useRouteContext().auth;
+	const { isInitialized, isAuthenticated, initializationError } =
+		Route.useRouteContext().auth;
 
 	// This should only render during initialization
 	// Once initialized, beforeLoad will handle redirects
@@ -34,17 +34,17 @@ function IndexComponent() {
 		return <LoadingScreen message="Initializing application..." />;
 	}
 
-	// Show error if initialization failed
+	// If there's a critical service error, show error with retry
+	// Otherwise, let beforeLoad handle the redirect
 	if (initializationError) {
 		return (
 			<div className="flex items-center justify-center min-h-screen">
 				<div className="text-center space-y-4 max-w-md">
 					<div className="text-red-500 text-lg font-medium">
-						Initialization Error
+						Service Unavailable
 					</div>
 					<p className="text-gray-600">{initializationError}</p>
-					<button
-						type="button"
+					<button type="button"
 						onClick={() => window.location.reload()}
 						className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
 					>
@@ -55,6 +55,12 @@ function IndexComponent() {
 		);
 	}
 
-	// Fallback - this should rarely render due to beforeLoad redirects
-	return <LoadingScreen message="Redirecting..." />;
+	// Manual redirect as fallback (beforeLoad should handle this)
+	if (isAuthenticated) {
+		window.location.replace("/dashboard");
+		return <LoadingScreen message="Redirecting to dashboard..." />;
+	} else {
+		window.location.replace("/login");
+		return <LoadingScreen message="Redirecting to login..." />;
+	}
 }
