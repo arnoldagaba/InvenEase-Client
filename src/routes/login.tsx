@@ -13,6 +13,7 @@ import { FormInput, PasswordInput } from "@/components/forms";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Button } from "@/components/ui/button";
 import { useLogin } from "@/hooks/useAuth";
+import { useAuthStore } from "@/stores/authStore";
 import { type LoginDTO, loginSchema } from "@/types/auth";
 
 const loginSearchSchema = z.object({
@@ -37,10 +38,6 @@ export const Route = createFileRoute("/login")({
 
 		// If user is already authenticated, redirect them away from login
 		if (context.auth.isAuthenticated) {
-			console.debug(
-				"✅ User already authenticated, redirecting away from login",
-			);
-
 			// If there's a redirect URL, use it, otherwise go to dashboard
 			const redirectTo =
 				(search as { redirect?: string })?.redirect || "/dashboard";
@@ -50,8 +47,6 @@ export const Route = createFileRoute("/login")({
 				replace: true,
 			});
 		}
-
-		console.debug("🔓 User not authenticated, showing login page");
 	},
 	component: LoginPage,
 	validateSearch: loginSearchSchema,
@@ -62,12 +57,16 @@ function LoginPage() {
 	const search = useSearch({ from: "/login" });
 	const { redirect } = search;
 	const { mutateAsync, isPending } = useLogin();
-	const { isInitialized, initializationError, setInitializationError } = Route.useRouteContext().auth;
+	const { isInitialized, initializationError } = Route.useRouteContext().auth;
+
+	// Get setInitializationError from store instead of context
+	const { setInitializationError } = useAuthStore();
 
 	const {
 		register,
 		handleSubmit,
 		formState: { errors },
+        watch
 	} = useForm<LoginDTO>({
 		resolver: zodResolver(loginSchema),
 		defaultValues: {
@@ -75,6 +74,8 @@ function LoginPage() {
 			password: "",
 		},
 	});
+
+    const password = watch("password");
 
 	// Show loading during initialization
 	if (!isInitialized) {
@@ -92,13 +93,15 @@ function LoginPage() {
 					</div>
 					<p className="text-gray-600">{initializationError}</p>
 					<div className="space-x-2">
-						<button type="button"
+						<button
+							type="button"
 							onClick={() => window.location.reload()}
 							className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
 						>
 							Retry
 						</button>
-						<button type="button"
+						<button
+							type="button"
 							onClick={() => setInitializationError(null)}
 							className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/90"
 						>
@@ -116,15 +119,12 @@ function LoginPage() {
 
 			// After successful login, redirect to intended page or dashboard
 			if (redirect) {
-				console.debug("🎯 Redirecting to intended page:", redirect);
 				window.location.href = redirect; // Use window.location for full redirect
 			} else {
-				console.debug("🎯 Redirecting to dashboard");
 				navigate({ to: "/dashboard", replace: true });
 			}
-		} catch (error) {
+		} catch (_error) {
 			// Error handling is done in the hook
-			console.debug("❌ Login failed", error);
 		}
 	};
 
@@ -162,6 +162,8 @@ function LoginPage() {
 							error={errors.password?.message}
 							disabled={isPending}
 							autoComplete="current-password"
+							showStrengthIndicator={true}
+							value={password || ""}
 						/>
 
 						<Button type="submit" className="w-full" disabled={isPending}>
