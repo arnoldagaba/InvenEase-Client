@@ -1,12 +1,11 @@
 import axios, {
-	type AxiosError,
 	type AxiosResponse,
 	type InternalAxiosRequestConfig,
 } from "axios";
 import { StatusCodes } from "http-status-codes";
 
+import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
-import type { ApiResponse, RefreshResponse } from "@/types/responses";
 
 const VITE_API_URL =
 	import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -64,7 +63,7 @@ apiClient.interceptors.response.use(
 		// If response is successful, just return it
 		return response;
 	},
-	async (error: AxiosError) => {
+	async (error) => {
 		const originalRequest = error.config as InternalAxiosRequestConfig & {
 			_retry?: boolean;
 		};
@@ -72,7 +71,8 @@ apiClient.interceptors.response.use(
 		// Check if error is 401 and we haven't already tried to refresh
 		if (
 			error.response?.status === StatusCodes.UNAUTHORIZED &&
-			!originalRequest._retry
+			!originalRequest._retry &&
+			!originalRequest.url?.includes("/auth/refresh")
 		) {
 			if (isRefreshing) {
 				// If we're already refreshing, add this request to the queue
@@ -95,10 +95,8 @@ apiClient.interceptors.response.use(
 
 			try {
 				// Attempt to refresh the token using the HTTP-only cookie
-				const response =
-					await apiClient.post<ApiResponse<RefreshResponse>>("/auth/refresh");
-				// biome-ignore lint/style/noNonNullAssertion: The data exists
-				const { accessToken } = response.data.data!;
+				const response = await authService.refreshToken();
+				const { accessToken } = response.data;
 
 				// Update the access token in our store
 				useAuthStore.getState().setAccessToken(accessToken);
@@ -128,7 +126,17 @@ apiClient.interceptors.response.use(
 			}
 		}
 
-		return Promise.reject(error);
+		// Extract server error message
+		const serverMessage =
+			error.response?.data?.message ||
+			error.response?.data?.error ||
+			error.message;
+		// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
+		const customError = new Error(serverMessage) as any;
+		customError.status = error.response?.status;
+		customError.data = error.response?.data;
+
+		return Promise.reject(customError);
 	},
 );
 

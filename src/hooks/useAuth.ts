@@ -1,59 +1,81 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 
 export const useLogin = () => {
-	const { setAccessToken, setUser, setIsAuthenticated } = useAuthStore();
-	const navigate = useNavigate();
+	const { setAuthenticatedUser } = useAuthStore();
 
 	return useMutation({
 		mutationFn: authService.login,
 		onSuccess: (data) => {
-			setAccessToken(data.data.accessToken);
-			setUser(data.data.user);
-			setIsAuthenticated(true);
-			toast.success(data.message);
-			navigate({ to: "/dashboard", replace: true });
+			// Set all auth state at once
+			setAuthenticatedUser(data.data.user, data.data.accessToken);
+			toast.success(data.message ?? "Welcome back!");
+			console.debug("✅ Login successful for:", data.data.user.email);
 		},
-		onError: (error) => {
-			toast.error(error.message);
+		// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
+		onError: (error: any) => {
+			const message =
+				error.response?.data?.message || error.message || "Login failed";
+			toast.error(message);
+			console.debug("❌ Login failed:", message);
 		},
 	});
 };
 
 export const useLogout = () => {
 	const { clearAuth } = useAuthStore();
-	const navigate = useNavigate();
+	const router = useRouter();
 	const queryClient = useQueryClient();
 
 	return useMutation({
 		mutationFn: authService.logout,
 		onSuccess: (data) => {
 			clearAuth();
-			toast.success(data.message);
-			queryClient.removeQueries();
-			navigate({ to: "/login", replace: true });
+			queryClient.clear();
+			toast.success(data.message || "Logged out successfully");
+			console.debug("✅ Logout successful");
+
+			// Navigate to login
+			router.navigate({ to: "/login", replace: true });
 		},
 		onError: () => {
+			// Even if server logout fails, clear local state
+			console.debug("⚠️ Server logout failed, clearing local state anyway");
 			clearAuth();
 			queryClient.clear();
-			navigate({ to: "/login", replace: true });
+
+			// Navigate to login regardless
+			router.navigate({ to: "/login", replace: true });
+
+			// Show a warning toast instead of error
+			toast.warning("Logged out (connection issue)");
 		},
 	});
 };
 
 export const useRefreshToken = () => {
-	const { setAccessToken, clearAuth } = useAuthStore();
+	const {  clearAuth } = useAuthStore();
 
 	return useMutation({
 		mutationFn: authService.refreshToken,
 		onSuccess: (data) => {
+			// This hook is mainly used by the API interceptor
+			// We don't have user data here, so just set the token
+			const { setAccessToken, setIsAuthenticated } = useAuthStore.getState();
 			setAccessToken(data.data.accessToken);
+			setIsAuthenticated(true);
+			console.debug("✅ Token refresh successful");
 		},
-		onError: () => {
+		// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
+		onError: (error: any) => {
+			console.debug(
+				"❌ Token refresh failed:",
+				error.response?.status || error.message,
+			);
 			clearAuth();
 		},
 	});
@@ -63,10 +85,15 @@ export const useChangePassword = () => {
 	return useMutation({
 		mutationFn: authService.changePassword,
 		onSuccess: (data) => {
-			toast.success(data.message);
+			toast.success(data.message || "Password changed successfully");
 		},
-		onError: (error) => {
-			toast.error(error.message);
+		// biome-ignore lint/suspicious/noExplicitAny: Unknown error type
+		onError: (error: any) => {
+			const message =
+				error.response?.data?.message ||
+				error.message ||
+				"Failed to change password";
+			toast.error(message);
 		},
 	});
 };
