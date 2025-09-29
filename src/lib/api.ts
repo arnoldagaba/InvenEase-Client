@@ -1,11 +1,12 @@
 import axios, {
+	type AxiosError,
 	type AxiosResponse,
 	type InternalAxiosRequestConfig,
 } from "axios";
 import { StatusCodes } from "http-status-codes";
 
-import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
+import type { ApiResponse, RefreshResponse } from "@/types/responses";
 
 const VITE_API_URL =
 	import.meta.env.VITE_API_URL || "http://localhost:3000/api";
@@ -63,17 +64,21 @@ apiClient.interceptors.response.use(
 		// If response is successful, just return it
 		return response;
 	},
-	async (error) => {
+	async (error: AxiosError) => {
 		const originalRequest = error.config as InternalAxiosRequestConfig & {
 			_retry?: boolean;
 		};
 
-		// Check if error is 401 and we haven't already tried to refresh
+		if (originalRequest.url?.includes("/auth/refresh")) {
+			// Don't retry if the request was to the refresh endpoint
+			return Promise.reject(error);
+		}
+
 		if (
 			error.response?.status === StatusCodes.UNAUTHORIZED &&
-			!originalRequest._retry &&
-			!originalRequest.url?.includes("/auth/refresh")
+			!originalRequest._retry
 		) {
+			// Check if error is 401 and we haven't already tried to refresh
 			if (isRefreshing) {
 				// If we're already refreshing, add this request to the queue
 				return new Promise((resolve, reject) => {
@@ -95,27 +100,32 @@ apiClient.interceptors.response.use(
 
 			try {
 				// Attempt to refresh the token using the HTTP-only cookie
-				const response = await authService.refreshToken();
-				const { accessToken } = response.data;
+				const response =
+					await apiClient.post<ApiResponse<RefreshResponse>>("/auth/refresh");
 
-				// Update the access token in our store
-				useAuthStore.getState().setAccessToken(accessToken);
+				if (response.data.success && response.data.data) {
+					const { accessToken } = response.data.data;
 
-				// Process the queue with the new token
-				processQueue(null, accessToken);
+					// Update the access token in our store
+					useAuthStore.getState().setAccessToken(accessToken);
+					useAuthStore.getState().setIsAuthenticated(true);
 
-				// Update the original request with the new token and retry
-				if (originalRequest.headers) {
-					originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+					// Process the queue with the new token
+					processQueue(null, accessToken);
+
+					// Update the original request with the new token and retry
+					if (originalRequest.headers) {
+						originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+					}
+
+					return apiClient(originalRequest);
 				}
-
-				return apiClient(originalRequest);
 			} catch (refreshError) {
 				// Refresh failed, log out the user
 				processQueue(refreshError, null);
 				useAuthStore.getState().clearAuth();
 
-				// Optionally redirect to login page
+				// Redirect to login page
 				if (typeof window !== "undefined") {
 					window.location.href = "/login";
 				}

@@ -6,88 +6,67 @@ import { authService } from "@/services/authService";
 import { useAuthStore } from "@/stores/authStore";
 
 export const useLogin = () => {
-    const { setAuthenticatedUser } = useAuthStore();
+	const { setAccessToken, setUser, setIsAuthenticated } = useAuthStore();
 
-    return useMutation({
-        mutationFn: authService.login,
-        onSuccess: (data) => {
-            // Set all auth state at once
-            setAuthenticatedUser(data.data.user, data.data.accessToken);
-            toast.success(data.message ?? "Welcome back!");
-        },
-        // biome-ignore lint/suspicious/noExplicitAny: Unknown error type
-        onError: (error: any) => {
-            const message =
-                error.response?.data?.message ||
-                error.message ||
-                "Login failed";
-            toast.error(message);
-        },
-    });
+	return useMutation({
+		mutationFn: authService.login,
+		onSuccess: (data) => {
+			setAccessToken(data.data.accessToken);
+			setUser(data.data.user);
+			setIsAuthenticated(true);
+			toast.success(data.message);
+			// NOTE: Don't navigate here - let the component handle it
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
 };
 
 export const useLogout = () => {
-    const { clearAuth } = useAuthStore();
-    const router = useRouter();
-    const queryClient = useQueryClient();
+	const { clearAuth } = useAuthStore();
+	const router = useRouter();
+	const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: authService.logout,
-        onSuccess: (data) => {
-            clearAuth();
-            queryClient.clear();
-            toast.success(data.message || "Logged out successfully");
-
-            // Navigate to login
-            router.navigate({ to: "/login", replace: true });
-        },
-        onError: () => {
-            // Even if server logout fails, clear local state
-            clearAuth();
-            queryClient.clear();
-
-            // Navigate to login regardless
-            router.navigate({ to: "/login", replace: true });
-
-            // Show a warning toast instead of error
-            toast.warning("Logged out (connection issue)");
-        },
-    });
+	return useMutation({
+		mutationFn: authService.logout,
+		onSuccess: (data) => {
+			clearAuth();
+			toast.success(data.message);
+			queryClient.clear();
+			// Invalidate the router to trigger redirects
+			router.invalidate();
+		},
+		onError: () => {
+			clearAuth();
+			queryClient.clear();
+			router.invalidate();
+		},
+	});
 };
 
 export const useRefreshToken = () => {
-    const { clearAuth } = useAuthStore();
+	const { setAccessToken, clearAuth } = useAuthStore();
 
-    return useMutation({
-        mutationFn: authService.refreshToken,
-        onSuccess: (data) => {
-            // This hook is mainly used by the API interceptor
-            // We don't have user data here, so just set the token
-            const { setAccessToken, setIsAuthenticated } =
-                useAuthStore.getState();
-            setAccessToken(data.data.accessToken);
-            setIsAuthenticated(true);
-        },
-        // biome-ignore lint/suspicious/noExplicitAny: Unknown error type
-        onError: (error: any) => {
-            clearAuth();
-        },
-    });
+	return useMutation({
+		mutationFn: authService.refreshToken,
+		onSuccess: (data) => {
+			setAccessToken(data.data.accessToken);
+		},
+		onError: () => {
+			clearAuth();
+		},
+	});
 };
 
 export const useChangePassword = () => {
-    return useMutation({
-        mutationFn: authService.changePassword,
-        onSuccess: (data) => {
-            toast.success(data.message || "Password changed successfully");
-        },
-        // biome-ignore lint/suspicious/noExplicitAny: Unknown error type
-        onError: (error: any) => {
-            const message =
-                error.response?.data?.message ||
-                error.message ||
-                "Failed to change password";
-            toast.error(message);
-        },
-    });
+	return useMutation({
+		mutationFn: authService.changePassword,
+		onSuccess: (data) => {
+			toast.success(data.message);
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		},
+	});
 };
