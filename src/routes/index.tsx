@@ -1,13 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { useAuthStore } from "@/stores/authStore";
-
 export const Route = createFileRoute("/")({
-	beforeLoad: () => {
-		const { isAuthenticated } = useAuthStore.getState();
-
-		// Automatically redirect based on auth status
-		if (isAuthenticated) {
+	beforeLoad: ({ context }) => {
+		// Check auth from context (which comes from AuthProvider)
+		if (context.auth.isAuthenticated) {
 			throw redirect({ to: "/dashboard" });
 		}
 

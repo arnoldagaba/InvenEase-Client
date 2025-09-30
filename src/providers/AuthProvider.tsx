@@ -1,33 +1,37 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
 import { createContext, useEffect, useState } from "react";
 
 import { authService } from "@/services/authService";
 import { UserService } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
 
-interface AuthContextType {
+export interface AuthContextType {
 	isLoading: boolean;
-	isInitialized: boolean;
+	isAuthenticated: boolean;
 }
 
-export const AuthContext = createContext<AuthContextType>({
-	isLoading: true,
-	isInitialized: false,
-});
+export const AuthContext = createContext<AuthContextType | undefined>(
+	undefined,
+);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
 	const [isLoading, setIsLoading] = useState(true);
-	const [isInitialized, setIsInitialized] = useState(false);
-	const { setAccessToken, setUser, setIsAuthenticated, clearAuth } =
-		useAuthStore();
+	const {
+		setAccessToken,
+		setUser,
+		setIsAuthenticated,
+		clearAuth,
+		isAuthenticated,
+	} = useAuthStore();
 	const queryClient = useQueryClient();
 
 	useEffect(() => {
 		const initAuth = async () => {
+			console.log("🔄 Attempting to refresh token...");
 			try {
 				// Attempt to refresh the access token using the HTTP-only cookie
 				const response = await authService.refreshToken();
+				console.log("✅ Token refresh successful:", response);
 
 				if (response.success && response.data) {
 					// Successfully refreshed - set authentication state
@@ -45,21 +49,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 						// Continue anyway, user will be fetched on next API call
 					}
 				}
-			} catch {
+			} catch (error) {
 				// No valid refresh token or it expired - user needs to login
+				console.log("❌ Token refresh failed:", error);
 				clearAuth();
 				queryClient.clear();
 			} finally {
 				setIsLoading(false);
-				setIsInitialized(true);
 			}
 		};
 
 		initAuth();
 	}, [setAccessToken, setUser, setIsAuthenticated, clearAuth, queryClient]);
 
-	// Don't render children until auth is initialized
-	if (!isInitialized) {
+	// Show loading state while checking authentication
+	if (isLoading) {
 		return (
 			<div className="flex h-screen items-center justify-center">
 				<div className="text-center">
@@ -71,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 	}
 
 	return (
-		<AuthContext.Provider value={{ isLoading, isInitialized }}>
+		<AuthContext.Provider value={{ isLoading, isAuthenticated }}>
 			{children}
 		</AuthContext.Provider>
 	);
