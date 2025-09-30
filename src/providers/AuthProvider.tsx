@@ -1,103 +1,82 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, type ReactNode, useEffect } from "react";
+import { createContext, useEffect, useState } from "react";
 
 import { authService } from "@/services/authService";
 import { UserService } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
-import type { User } from "@/types/auth";
 
-interface AuthContextValue {
-    isAuthenticated: boolean;
-    isInitialized: boolean;
-    user: User | null;
-    initializationError: string | null;
+export interface AuthContextType {
+	isLoading: boolean;
+	isAuthenticated: boolean;
 }
 
-export const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = createContext<AuthContextType | undefined>(
+	undefined,
+);
 
-interface AuthProviderProps {
-    children: ReactNode;
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+	const [isLoading, setIsLoading] = useState(true);
+	const {
+		setAccessToken,
+		setUser,
+		setIsAuthenticated,
+		clearAuth,
+		isAuthenticated,
+	} = useAuthStore();
+	const queryClient = useQueryClient();
+
+	useEffect(() => {
+		const initAuth = async () => {
+			console.log("🔄 Attempting to refresh token...");
+			try {
+				// Attempt to refresh the access token using the HTTP-only cookie
+				const response = await authService.refreshToken();
+				console.log("✅ Token refresh successful:", response);
+
+				if (response.success && response.data) {
+					// Successfully refreshed - set authentication state
+					setAccessToken(response.data.accessToken);
+					setIsAuthenticated(true);
+
+					// Fetch current user data
+					try {
+						const userResponse = await UserService.currentUser();
+						if (userResponse.success && userResponse.data) {
+							setUser(userResponse.data.user);
+						}
+					} catch (userError) {
+						console.error("Failed to fetch user data:", userError);
+						// Continue anyway, user will be fetched on next API call
+					}
+				}
+			} catch (error) {
+				// No valid refresh token or it expired - user needs to login
+				console.log("❌ Token refresh failed:", error);
+				clearAuth();
+				queryClient.clear();
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		initAuth();
+	}, [setAccessToken, setUser, setIsAuthenticated, clearAuth, queryClient]);
+
+	// Show loading state while checking authentication
+	if (isLoading) {
+		return (
+			<div className="flex h-screen items-center justify-center">
+				<div className="text-center">
+					<div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
+					<p className="text-muted-foreground">Loading...</p>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<AuthContext.Provider value={{ isLoading, isAuthenticated }}>
+			{children}
+		</AuthContext.Provider>
+	);
 }
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
-    const {
-        user,
-        isAuthenticated,
-        isInitialized,
-        initializationError,
-        setAuthenticatedUser,
-        setIsInitialized,
-        setInitializationError,
-        clearAuth,
-    } = useAuthStore();
-
-    const queryClient = useQueryClient();
-
-    // Initialize auth state on app startup - this is the critical part
-    useEffect(() => {
-        const initializeAuth = async () => {
-            try {
-                // Try to refresh token using HTTP-only cookie
-                const refreshResponse = await authService.refreshToken();
-                const { accessToken } = refreshResponse.data;
-
-                // Get current user data
-                const userResponse = await UserService.currentUser();
-                const userData = userResponse.data.user;
-
-                // Set authenticated state all at once
-                setAuthenticatedUser(userData, accessToken);
-
-                // biome-ignore lint/suspicious/noExplicitAny: Unknown error type
-            } catch (error: any) {
-                // Clear any stale auth state
-                clearAuth();
-
-                // Only set error for actual service failures (not just missing auth)
-                // 401 = no valid refresh token (normal for logged out users)
-                // 500+ = actual server errors that should show error state
-                if (error.response?.status >= 500) {
-                    setInitializationError(
-                        "Authentication service unavailable. Please try again."
-                    );
-                } else {
-                }
-                // For 401, network errors, etc. - just proceed as unauthenticated
-                // The router will automatically redirect to login
-            } finally {
-                setIsInitialized(true);
-            }
-        };
-
-        // Only initialize once
-        if (!isInitialized) {
-            initializeAuth();
-        }
-    }, [
-        isInitialized,
-        setAuthenticatedUser,
-        setIsInitialized,
-        setInitializationError,
-        clearAuth,
-    ]);
-
-    // Clear queries when auth state changes to unauthenticated
-    useEffect(() => {
-        if (isInitialized && !isAuthenticated) {
-            queryClient.clear();
-        }
-    }, [isAuthenticated, isInitialized, queryClient]);
-
-    const contextValue: AuthContextValue = {
-        isAuthenticated,
-        isInitialized,
-        user,
-        initializationError,
-    };
-
-    return (
-        <AuthContext.Provider value={contextValue}>
-            {children}
-        </AuthContext.Provider>
-    );
-};

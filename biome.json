@@ -14,7 +14,7 @@
 		"indentStyle": "tab",
 		"indentWidth": 4,
 		"lineEnding": "lf",
-		"lineWidth": 100,
+		"lineWidth": 80,
 		"attributePosition": "auto",
 		"bracketSameLine": false,
 		"bracketSpacing": true,
@@ -29,7 +29,9 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"recommended": true, "nursery": {
+				"useSortedClasses": "on"
+			}
 		},
 		"includes": [
 			"**",

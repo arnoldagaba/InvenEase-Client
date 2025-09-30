@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
 	createFileRoute,
+	Link,
 	redirect,
 	useNavigate,
 	useSearch,
@@ -10,136 +11,53 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { FormInput, PasswordInput } from "@/components/forms";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import { Button } from "@/components/ui/button";
 import { useLogin } from "@/hooks/useAuth";
 import { useAuthStore } from "@/stores/authStore";
 import { type LoginDTO, loginSchema } from "@/types/auth";
 
 const loginSearchSchema = z.object({
-	redirect: z.string().optional(),
+	redirect: z.string().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/login")({
-	beforeLoad: async ({ context, search }) => {
-		// Wait for auth initialization if not complete
-		if (!context.auth.isInitialized) {
-			await new Promise<void>((resolve) => {
-				const checkInitialization = () => {
-					if (context.auth.isInitialized) {
-						resolve();
-					} else {
-						setTimeout(checkInitialization, 10);
-					}
-				};
-				checkInitialization();
-			});
-		}
+	validateSearch: loginSearchSchema,
+	beforeLoad: () => {
+		const { isAuthenticated } = useAuthStore.getState();
 
-		// If user is already authenticated, redirect them away from login
-		if (context.auth.isAuthenticated) {
-			// If there's a redirect URL, use it, otherwise go to dashboard
-			const redirectTo =
-				(search as { redirect?: string })?.redirect || "/dashboard";
-
-			throw redirect({
-				to: redirectTo,
-				replace: true,
-			});
+		if (isAuthenticated) {
+			throw redirect({ to: "/dashboard" });
 		}
 	},
 	component: LoginPage,
-	validateSearch: loginSearchSchema,
 });
 
 function LoginPage() {
 	const navigate = useNavigate();
 	const search = useSearch({ from: "/login" });
-	const { redirect } = search;
 	const { mutateAsync, isPending } = useLogin();
-	const { isInitialized, initializationError } = Route.useRouteContext().auth;
-
-	// Get setInitializationError from store instead of context
-	const { setInitializationError } = useAuthStore();
 
 	const {
 		register,
 		handleSubmit,
 		formState: { errors },
-        watch
-	} = useForm<LoginDTO>({
-		resolver: zodResolver(loginSchema),
-		defaultValues: {
-			email: "",
-			password: "",
-		},
-	});
-
-    const password = watch("password");
-
-	// Show loading during initialization
-	if (!isInitialized) {
-		return <LoadingScreen message="Loading..." />;
-	}
-
-	// Show error only for critical service failures (500+ errors)
-	// For other errors, proceed to show login form
-	if (initializationError) {
-		return (
-			<div className="flex items-center justify-center min-h-screen">
-				<div className="text-center space-y-4 max-w-md">
-					<div className="text-red-500 text-lg font-medium">
-						Service Unavailable
-					</div>
-					<p className="text-gray-600">{initializationError}</p>
-					<div className="space-x-2">
-						<button
-							type="button"
-							onClick={() => window.location.reload()}
-							className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
-						>
-							Retry
-						</button>
-						<button
-							type="button"
-							onClick={() => setInitializationError(null)}
-							className="bg-secondary text-secondary-foreground px-4 py-2 rounded hover:bg-secondary/90"
-						>
-							Continue to Login
-						</button>
-					</div>
-				</div>
-			</div>
-		);
-	}
+	} = useForm<LoginDTO>({ resolver: zodResolver(loginSchema) });
 
 	const onSubmit = async (data: LoginDTO) => {
-		try {
-			await mutateAsync(data);
+		await mutateAsync(data);
 
-			// After successful login, redirect to intended page or dashboard
-			if (redirect) {
-				window.location.href = redirect; // Use window.location for full redirect
-			} else {
-				navigate({ to: "/dashboard", replace: true });
-			}
-		} catch (_error) {
-			// Error handling is done in the hook
-		}
+		// Redirect to the page they were trying to access, or dashboard
+		const redirectTo = search.redirect || "/dashboard";
+		navigate({ to: redirectTo as "/dashboard" });
 	};
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-slate-950">
+		<div className="flex min-h-screen items-center-safe justify-center-safe bg-slate-50 px-4 py-12 sm:px-6 lg:px-8 dark:bg-slate-950">
 			<div className="w-full max-w-md space-y-8">
 				<div>
 					<h2 className="mt-6 text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
 						Sign in to your account
 					</h2>
-					{redirect && (
-						<p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-							Please sign in to continue to your requested page
-						</p>
-					)}
 				</div>
 
 				<div className="rounded-lg bg-white p-8 shadow-md dark:bg-gray-900">
@@ -152,8 +70,6 @@ function LoginPage() {
 							placeholder="Enter your email"
 							error={errors.email?.message}
 							disabled={isPending}
-							autoComplete="email"
-							autoFocus
 						/>
 
 						<PasswordInput
@@ -161,10 +77,18 @@ function LoginPage() {
 							placeholder="Enter your password"
 							error={errors.password?.message}
 							disabled={isPending}
-							autoComplete="current-password"
-							showStrengthIndicator={true}
-							value={password || ""}
 						/>
+
+						<div className="flex items-center-safe justify-between">
+							<div className="text-sm">
+								<Link
+									to="/forgot-password"
+									className="text-primary hover:text-primary/80 font-medium hover:underline"
+								>
+									Forgot your password?
+								</Link>
+							</div>
+						</div>
 
 						<Button type="submit" className="w-full" disabled={isPending}>
 							{isPending ? (
