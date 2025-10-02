@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useCreateUser } from "@/hooks/useUser";
 import { emailSchema, passwordSchema } from "@/types/auth";
+import { PasswordInput } from "../forms";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -19,7 +20,6 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { PasswordInput } from "../forms";
 
 const createUserSchema = z.object({
 	email: emailSchema,
@@ -40,10 +40,12 @@ export const CreateUserDialog = () => {
 		handleSubmit,
 		formState: { errors },
 		reset,
+		watch,
 	} = useForm<CreateUserForm>({
 		resolver: zodResolver(createUserSchema),
 	});
 
+	const password = watch("password");
 	const onSubmit = async (data: CreateUserForm) => {
 		try {
 			await createUserMutation.mutateAsync({
@@ -137,6 +139,8 @@ export const CreateUserDialog = () => {
 							{...register("password")}
 							placeholder="••••••••"
 							disabled={createUserMutation.isPending}
+							showStrengthIndicator
+							value={password || ""}
 						/>
 						{errors.password && (
 							<p className="text-red-600 text-sm">{errors.password.message}</p>
