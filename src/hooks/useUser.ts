@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -25,10 +25,14 @@ export const useCurrentUser = () => {
 };
 
 export const useCreateUser = () => {
+	const queryClient = useQueryClient();
+
 	return useMutation({
 		mutationFn: UserService.createUser,
 		onSuccess: (data) => {
 			toast.success(data.message);
+			// Invalidate and refetch users queries
+			queryClient.invalidateQueries({ queryKey: ["users"] });
 		},
 		onError: (error) => {
 			toast.error(error.message);
@@ -44,7 +48,13 @@ export const usePaginatedUsers = ({
 }: PaginationParams) => {
 	return useQuery({
 		queryKey: ["users", page, limit, sort, search],
-		queryFn: () => UserService.getPaginatedUsers({ page, limit, sort, search }),
+		queryFn: () =>
+			UserService.getPaginatedUsers({ page, limit, sort, search }),
+		placeholderData: { data: [], message: "Loading...", success: true },
+		staleTime: 5 * 60 * 1000, // 5 minutes
+		gcTime: 10 * 60 * 1000, // 10 minutes
+		refetchOnWindowFocus: false,
+		retry: 2,
 	});
 };
 
@@ -63,11 +73,16 @@ export const useUserById = (id: string) => {
 };
 
 export const useUpdateUser = () => {
+	const queryClient = useQueryClient();
+
 	return useMutation({
 		mutationFn: ({ id, user }: { id: string; user: UpdateUserDTO }) =>
 			UserService.updateUser(id, user),
 		onSuccess: (data) => {
 			toast.success(data.message);
+			// Invalidate and refetch users queries
+			queryClient.invalidateQueries({ queryKey: ["users"] });
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 		},
 		onError: (error) => {
 			toast.error(error.message);
@@ -76,11 +91,15 @@ export const useUpdateUser = () => {
 };
 
 export const useDeleteUser = () => {
+	const queryClient = useQueryClient();
+
 	return useMutation({
 		mutationFn: ({ id, hard }: { id: string; hard?: true }) =>
 			UserService.deleteUser(id, hard),
 		onSuccess: (data) => {
 			toast.success(data.message);
+			// Invalidate and refetch users queries
+			queryClient.invalidateQueries({ queryKey: ["users"] });
 		},
 		onError: (error) => {
 			toast.error(error.message);

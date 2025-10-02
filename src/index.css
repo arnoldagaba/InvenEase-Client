@@ -195,3 +195,19 @@
 		letter-spacing: var(--tracking-normal);
 	}
 }
+
+::-webkit-scrollbar {
+	@apply w-1.5 h-1.5
+}
+
+::-webkit-scrollbar-track {
+	@apply bg-transparent
+}
+
+::-webkit-scrollbar-thumb {
+	@apply rounded-full bg-gray-400 border-[1px] border-transparent border-solid
+}
+
+::-webkit-scrollbar-thumb:hover {
+	@apply bg-gray-600
+}

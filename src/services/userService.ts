@@ -4,8 +4,8 @@ import type { ApiResponse } from "@/types/responses";
 import type { UpdateUserDTO } from "@/types/user";
 
 export type PaginationParams = {
-	page: number;
-	limit: number;
+	page?: number;
+	limit?: number;
 	sort?: "asc" | "desc";
 	search?: string;
 };
@@ -22,7 +22,10 @@ export const UserService = {
 	},
 
 	createUser: async (user: User) => {
-		const response = await apiClient.post<ApiResponse<User>>("/users", user);
+		const response = await apiClient.post<ApiResponse<User>>(
+			"/users",
+			user,
+		);
 		return response.data;
 	},
 
@@ -40,16 +43,28 @@ export const UserService = {
 		if (sort) params.sort = sort;
 		if (search) params.search = search;
 
+		console.log("=== API REQUEST DEBUG ===");
+		console.log("Making request to /users with params:", params);
+
 		const response = await apiClient.get<ApiResponse<User[]>>("/users", {
 			params,
 		});
+
+		console.log("Raw API response:", response);
+		console.log("Response data:", response.data);
+		console.log("Response status:", response.status);
+		console.log("========================");
+
 		return response.data;
 	},
 
-	getUsersByCursor: async ({cursor = "", take = 10}: CursorPagination) => {
-		const response = await apiClient.get<ApiResponse<User[]>>(`/users/cursor`, {
-			params: { cursor, take },
-		});
+	getUsersByCursor: async ({ cursor = "", take = 10 }: CursorPagination) => {
+		const response = await apiClient.get<ApiResponse<User[]>>(
+			`/users/cursor`,
+			{
+				params: { cursor, take },
+			},
+		);
 		return response.data.data;
 	},
 
@@ -67,9 +82,12 @@ export const UserService = {
 	},
 
 	deleteUser: async (id: string, hard?: true) => {
-		const response = await apiClient.delete<ApiResponse<User>>(`/users/${id}`, {
-			params: { hard },
-		});
+		const response = await apiClient.delete<ApiResponse<User>>(
+			`/users/${id}`,
+			{
+				params: { hard },
+			},
+		);
 		return response.data;
 	},
 };
