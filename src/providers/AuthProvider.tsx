@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, useEffect, useState } from "react";
-
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { authService } from "@/services/authService";
 import { UserService } from "@/services/userService";
 import { useAuthStore } from "@/stores/authStore";
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 					try {
 						const userResponse = await UserService.currentUser();
 						if (userResponse.success && userResponse.data) {
-							setUser(userResponse.data.user);
+							setUser(userResponse.data);
 						}
 					} catch (userError) {
 						console.error("Failed to fetch user data:", userError);
@@ -64,14 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 	// Show loading state while checking authentication
 	if (isLoading) {
-		return (
-			<div className="flex h-screen items-center justify-center">
-				<div className="text-center">
-					<div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto mb-4" />
-					<p className="text-muted-foreground">Loading...</p>
-				</div>
-			</div>
-		);
+		return <LoadingScreen />;
 	}
 
 	return (

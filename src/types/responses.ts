@@ -37,7 +37,3 @@ export interface RegisterResponse {
 export interface GetAllUsersResponse {
 	users: User[];
 }
-
-export interface GetCurrentUserResponse {
-	user: User;
-}
