@@ -29,7 +29,8 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true, "nursery": {
+			"recommended": true,
+			"nursery": {
 				"useSortedClasses": "on"
 			}
 		},
